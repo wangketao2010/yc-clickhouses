@@ -1,0 +1,15 @@
+
+spring:
+  profiles:
+    active:
+  devtools:
+    restart:
+      enabled: false
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: ru.yandex.clickhouse.ClickHouseDriver
+    jdbc-url: jdbc:clickhouse://192.168.87.162:8123
+    username:
+    password:
+server:
+  port: 8080
