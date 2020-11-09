@@ -1,6 +1,8 @@
 package com.yc.clickhouse.dao;
 
-import com.yc.clickhouse.constant.Condition;
+import com.yc.clickhouse.config.annotation.ClickHouseTable;
+import com.yc.clickhouse.constant.Constant;
+import com.yc.clickhouse.generator._BaseEntity;
 import com.yc.clickhouse.utils.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.beanutils.BeanUtils;
@@ -13,10 +15,13 @@ import javax.sql.DataSource;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.ParameterizedType;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author zhanglei
@@ -25,7 +30,9 @@ import java.util.Date;
  */
 @Slf4j
 @Component
-public class ClickHouseDaoBase<T> {
+public class ClickHouseDaoBase<T extends _BaseEntity> {
+    private Lock lock = new ReentrantLock();// 可重入锁
+    private Class<T> tClass;// 当前实体类对应泛型
 
     /**
      * 注入数据源
@@ -49,6 +56,262 @@ public class ClickHouseDaoBase<T> {
         }
         return connection;
     }
+    //################################# merginng #################################
+    /**
+     * 获取当前实体类对应的表名
+     * @return
+     */
+    private String getTableName(){
+        ClickHouseTable table =  this.getTClass().getAnnotation(ClickHouseTable.class);
+        if(table == null){
+            throw new RuntimeException(" no Annotation 'javax.persistence.Table' in clazz  ");
+        }
+        return table.name();
+    }
+    /**
+     * 获取T的class实例
+     * @return
+     */
+    private Class<T> getTClass(){
+        if(tClass == null){
+            lock.lock();
+            try {
+                if(tClass == null){
+                    tClass = (Class<T>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+                }
+            }finally {
+                lock.unlock();
+            }
+        }
+        return tClass;
+    }
+    /**
+     * 不同于普通SQL的修改和删除，alter table [tableName] update……where……
+     * 根据构造的对象，以ID为条件来修改
+     * @param entity：只针对注解声明的属性
+     * @return
+     */
+    public int updateById(T entity){
+        if(entity == null){
+            throw new RuntimeException(" entity is null ");
+        }
+        // 构建修改语句sql
+        StringBuffer sql = new StringBuffer("alter table ").append(this.getTableName()).append(" update ");
+        String where = "";
+
+        // 获取类的所有字段，并逐一填充sql，只针对注解声明的属性,
+        Field[] fieldList = this.getAllFieldList();
+        List<Object> setValue = new ArrayList<>();
+        for(Field field:fieldList){
+            ClickHouseColumn column = field.getAnnotation(ClickHouseColumn.class);
+            if(column != null){
+                Object getValue = this.getMethodGetValue(field.getName(), entity);//反射获取到属性的值
+
+                // ID条件判断
+                ClickHouseID id = field.getAnnotation(ClickHouseID.class);
+                if(id != null){
+                    where = " where "+column.name()+" = "+getValue;
+                }else{
+                    sql.append(column.name()).append(" = ?,");
+                    setValue.add(getValue);
+                }
+            }
+        }
+
+        // 完成SQL的构建
+        sql.deleteCharAt(sql.length()-1).append(where);
+
+        logger.info(sql.toString());
+
+        // 开始修改
+        Connection connection = getConnection();
+        try {
+            PreparedStatement pst = connection.prepareStatement(sql.toString());
+            for(Object value:setValue){
+                int index = 1;//preparedStatement的占位
+                pst.setObject(index,value);
+                index++;
+            }
+            int res = pst.executeUpdate();//提交修改
+            connection.commit();// 执行
+            logger.info("修改结果：[{}]",res);
+            return res;
+        } catch (Exception e) {
+            try {
+                connection.rollback();//异常回滚
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+        return 0;
+    }
+    /**
+     * 指定的SQL语句修改，一般是范围修改
+     * @param sql
+     * @return
+     */
+    public int updateBySql(String sql){
+        log.info(sql);
+
+        Connection connection = getConnection();
+        try {
+            Statement statement = getConnection().createStatement();
+            int update = statement.executeUpdate(sql);
+            connection.commit();// 执行
+            return update;
+        } catch (Exception e) {
+            try {
+                connection.rollback();//异常回滚
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+        return 0;
+    }
+    /**
+     * 不同于普通SQL的修改和删除，alter table [tableName] delete where……
+     * 根据ID删除，要获取被ID注解声明的字段名称
+     * @param id
+     * @return
+     */
+    public int deleteById(Object id){
+        String columnID = "";//字段ID
+        Field[] fieldList = this.getAllFieldList();
+        for(Field field:fieldList){
+            ClickHouseID annotationID = field.getAnnotation(ClickHouseID.class);
+            if(annotationID != null){
+                ClickHouseColumn annotationColumn = field.getAnnotation(ClickHouseColumn.class);
+                columnID = annotationColumn.name();
+            }
+        }
+        String sql = "alter table "+this.getTableName()+" delete where "+columnID+" = ?";
+
+        logger.info(sql);
+
+        Connection connection = getConnection();
+        try {
+            PreparedStatement pst = connection.prepareStatement(sql);
+            pst.setObject(1,id);
+            int res = pst.executeUpdate();//提交删除
+            connection.commit();// 执行
+            return res;
+        } catch (Exception e) {
+            try {
+                connection.rollback();//异常回滚
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+        return 0;
+    }
+    /**
+     * 根据SQL语句来删除
+     * @param sql
+     * @return
+     */
+    public int deleteBySql(String sql){
+        logger.info(sql);
+
+        Connection connection = getConnection();
+        try {
+            Statement statement = getConnection().createStatement();
+            int update = statement.executeUpdate(sql);
+            connection.commit();// 执行
+            return update;
+        } catch (Exception e) {
+            try {
+                connection.rollback();//异常回滚
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+        return 0;
+    }
+    /**
+     * 构建条件，获取统计数量
+     * @param entity
+     * @return
+     */
+    public int selectCount(T entity){
+        if(entity == null){
+            return this.selectCountAll();
+        }
+        // 构建条件对象
+        ConditionEntity conditionEntity = this.getWhereSqlAndValue(entity, CONDITION_EQUAL);
+
+        // 构建SQL
+        StringBuffer sql = new StringBuffer("select count(*) as count from ").append(this.getTableName());
+        sql.append(" where ").append(conditionEntity.getSql());
+
+        logger.info(sql.toString());
+
+        try {
+            PreparedStatement preparedStatement = this.createPreparedStatement(sql.toString(), conditionEntity.getValues());
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if(resultSet.next()){
+                return resultSet.getInt("count");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+    public int selectCount(String sql) {
+        sql = "select count(t.*) as count from ("+sql+") t";//手动构造统计
+
+        logger.info(sql);
+
+        ResultSet resultSet = this.executeQuery(sql);
+        if(resultSet != null){
+            try {
+                if(resultSet.next()){
+                    return resultSet.getInt("count");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return 0;
+    }
+    /**
+     * 分页查询，构造条件，排序
+     * @param start
+     * @param size
+     * @param entity
+     * @param orderByFieldAndIsAsc：eg：field asc/desc
+     * @return
+     */
+    public List<T> selectPage(int start,int size,T entity,String orderByFieldAndIsAsc){
+        if(entity == null){
+            return this.selectPage(start,size,orderByFieldAndIsAsc);
+        }
+        // 构造条件对象
+        ConditionEntity conditionEntity = this.getWhereSqlAndValue(entity, CONDITION_EQUAL);
+
+        // 构造SQL语句
+        StringBuffer sql = new StringBuffer("select * from ").append(this.getTableName());
+        sql.append(" where ").append(conditionEntity.getSql());
+        if(orderByFieldAndIsAsc != null && orderByFieldAndIsAsc != ""){
+            sql.append(" order by ").append(orderByFieldAndIsAsc);
+        }
+        sql.append(" limit ").append(start).append(",").append(size);
+
+        logger.info(sql.toString());
+
+        try {
+            PreparedStatement preparedStatement = this.createPreparedStatement(sql.toString(), conditionEntity.getValues());
+            ResultSet resultSet = preparedStatement.executeQuery();
+            return this.convertSetToEntity(resultSet);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<T>(0);//直接返回空list，防止NullPointException
+    }
+    //################################# merginng #################################
 
     /**
      * 根据传入SQL条件，查询对象集合数据
@@ -247,9 +510,9 @@ public class ClickHouseDaoBase<T> {
      * 批量插入实体对象集合数据
      *
      * @param list
-     * @param tableName
      */
-    public void batchInsert(List<T> list, String tableName) {
+    public void batchInsert(List<T> list) {
+        String tableName = getTableName();
         if (list == null || list.size() <= 0 || StringUtil.isEmpty(tableName))
             return;
         PreparedStatement ps = null;
@@ -262,7 +525,7 @@ public class ClickHouseDaoBase<T> {
             Long startTime = System.currentTimeMillis();
             // 此处查询一次，只为了获取对应列名索引，进而插入对应值
             conn = getConnection();
-            resultSet = conn.createStatement().executeQuery(Condition.QUERY + Condition.WILDCARD + Condition.FROM + tableName + Condition.LIMIT + 1);
+            resultSet = conn.createStatement().executeQuery(Constant.QUERY + Constant.WILDCARD + Constant.FROM + tableName + Constant.LIMIT + 1);
             Map<String, Integer> indexMap = new HashMap<>();
             // 将列名和对应索引存入indexMap
             for (int a = 1; a <= resultSet.getMetaData().getColumnCount(); a++) {
@@ -272,7 +535,7 @@ public class ClickHouseDaoBase<T> {
             for (T obj : list) {
                 batch++;
                 if (null == fields || fieldSize == 0) {
-                    StringBuffer sql = new StringBuffer(Condition.ADD + tableName + " values(");
+                    StringBuffer sql = new StringBuffer(Constant.ADD + tableName + " values(");
                     Class clazz = obj.getClass();
                     while (clazz != null) {   //当父类为null的时候说明到达了最上层的父类(Object类).
                         fieldList.addAll(Arrays.asList(clazz.getDeclaredFields()));
@@ -364,9 +627,9 @@ public class ClickHouseDaoBase<T> {
      * 批量插入List对象集合map数据
      *
      * @param list
-     * @param tableName
      */
-    public void batchInsertExt(List<Map<String, Object>> list, String tableName) {
+    public void batchInsertExt(List<Map<String, Object>> list) {
+        String tableName = getTableName();
         if (list == null || list.size() <= 0 || StringUtil.isEmpty(tableName))
             return;
         PreparedStatement ps = null;
@@ -378,7 +641,7 @@ public class ClickHouseDaoBase<T> {
             Long startTime = System.currentTimeMillis();
             // 此处查询一次，只为了获取对应列名索引，进而插入对应值
             conn = getConnection();
-            resultSet = conn.createStatement().executeQuery(Condition.QUERY + Condition.WILDCARD + Condition.FROM + tableName + Condition.LIMIT + 1);
+            resultSet = conn.createStatement().executeQuery(Constant.QUERY + Constant.WILDCARD + Constant.FROM + tableName + Constant.LIMIT + 1);
             Map<String, Integer> indexMap = new HashMap<>();
             // 将列名和对应索引存入indexMap
             for (int a = 1; a <= resultSet.getMetaData().getColumnCount(); a++) {
@@ -389,7 +652,7 @@ public class ClickHouseDaoBase<T> {
             for (Map<String, Object> map : list) {
                 batch++;
                 if (null == fields || fieldSize == 0) {
-                    StringBuffer sql = new StringBuffer(Condition.ADD + tableName + " (");
+                    StringBuffer sql = new StringBuffer(Constant.ADD + tableName + " (");
                     fields = map.keySet().toArray(new String[map.keySet().size()]);
                     fieldSize = fields.length;
                     for (int i = 0; i < fieldSize; i++) {

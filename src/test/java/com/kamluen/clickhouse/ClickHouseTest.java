@@ -1,7 +1,7 @@
 package com.kamluen.clickhouse;
 
 import com.alibaba.fastjson.JSONObject;
-import com.yc.clickhouse.constant.Condition;
+import com.yc.clickhouse.constant.Constant;
 import com.yc.clickhouse.service.ClickHouseService;
 import com.yc.clickhouse.ClickHouseApplication;
 import com.yc.clickhouse.dao.ClickHouseDaoBase;
@@ -47,7 +47,7 @@ public class ClickHouseTest<T> {
     public void deleteTest(){
         String tableName = "";
         String assetId = "zhanglei.SZ";
-        String deleteSql = Condition.ALTER_TABLE + tableName + Condition.CK_CLUSTER_NAME + Condition.DELETE + Condition.WHERE + " asset_id = '%s'";
+        String deleteSql = Constant.ALTER_TABLE + tableName + Constant.CK_CLUSTER_NAME + Constant.DELETE + Constant.WHERE + " asset_id = '%s'";
         deleteSql = String.format(deleteSql, assetId);
         System.out.println("打印执行SQL：" + deleteSql);
         clickHouseService.executeBySql(deleteSql);

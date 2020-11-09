@@ -51,7 +51,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void batchInsert(List<T> list, String tableName) {
-        clickHouseDaoBase.batchInsert(list, tableName);
+        clickHouseDaoBase.batchInsert(list);
     }
 
     /**
@@ -110,6 +110,6 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void batchInsertExt(List<Map<String, Object>> list, String tableName) {
-        clickHouseDaoBase.batchInsertExt(list, tableName);
+        clickHouseDaoBase.batchInsertExt(list);
     }
 }
