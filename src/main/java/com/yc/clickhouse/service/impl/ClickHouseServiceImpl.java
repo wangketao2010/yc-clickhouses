@@ -28,7 +28,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public List<T> selectList(Class<T> clazz, String sql) {
-        return clickHouseDaoBase.selectList(clazz, sql);
+        return clickHouseDaoBase.selectListObj(sql,null);
     }
 
     /**
@@ -40,7 +40,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public T selectInfo(Class<T> clazz, String sql) {
-        return (T) clickHouseDaoBase.selectOne(clazz, sql);
+        return (T) clickHouseDaoBase.selectOne(sql,null);
     }
 
     /**
@@ -61,7 +61,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void executeBySql(String sql) {
-        clickHouseDaoBase.executeBySql(sql);
+        clickHouseDaoBase.executeInsertUpdateDelete(sql);
     }
 
     /**
@@ -74,7 +74,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public List<T> selectList(Class<T> clazz, String sql, Object[] params) {
-        return clickHouseDaoBase.selectList(clazz, sql, params);
+        return clickHouseDaoBase.selectListObj(sql, params);
     }
 
     /**
@@ -87,7 +87,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public T selectInfo(Class<T> clazz, String sql, Object[] params) {
-        return (T) clickHouseDaoBase.selectOne(clazz, sql, params);
+        return (T) clickHouseDaoBase.selectOne( sql, params);
     }
 
     /**
@@ -99,7 +99,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public List<Map<String, Object>> selectList(String sql, Object[] params) {
-        return clickHouseDaoBase.selectList(sql, params);
+        return clickHouseDaoBase.selectListObj(sql, params);
     }
 
     /**

@@ -35,7 +35,7 @@ public class ClickHouseTest<T> {
         // 返回实体对象list集合数据
 //        List<TTrade> list = clickHouseHandler.selectList(TTrade.class, sql);
         // 返回map集合对象list集合数据
-        List<Map<String, Object>> maps = clickHouseDaoBase.selectList(sql, new Object[]{});
+        List<Map<String, Object>> maps = clickHouseDaoBase.selectListObj(sql, new Object[]{});
         System.out.println("输出集合数据：" + JSONObject.toJSONString(maps));
     }
 
