@@ -1,4 +1,4 @@
-package com.yc.clickhouse.generator;
+package com.yc.clickhouse.entity;
 
 /**
  * 功能描述

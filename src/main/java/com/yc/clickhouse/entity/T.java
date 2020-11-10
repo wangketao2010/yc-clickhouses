@@ -4,7 +4,6 @@ import javax.persistence.Entity;
 
 import com.yc.clickhouse.config.annotation.ClickHousePrimaryKey;
 import com.yc.clickhouse.config.annotation.ClickHouseTable;
-import com.yc.clickhouse.generator._BaseEntity;
 import lombok.Data;
 import java.io.Serializable;
 import java.util.Date;
