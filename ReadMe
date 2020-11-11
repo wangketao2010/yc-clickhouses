@@ -1,3 +1,19 @@
+ClickHouseJDBC 脚手架 集成了一般的访问功能
+自动代码生成
+连接池默认
+增删改待优化
+
+
+
+参考：
+1、https://github.com/994625905/wangjc-clickhouse.git
+2、https://github.com/zl921206/clickhouse.git
+
+
+
+
+
+SQL:
 DROP table t_test;
 create table t_test (id UInt16,  name String,  address String,  create_date Date, del_status UInt8) ENGINE=MergeTree(create_date,( id, name),10);
 INSERT INTO default.t_test (id,name,address,create_date,del_status)
