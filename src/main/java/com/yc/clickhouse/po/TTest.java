@@ -1,8 +1,9 @@
-package com.yc.clickhouse.entity;
+package com.yc.clickhouse.po;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import com.yc.clickhouse.config.annotation.ClickHousePrimaryKey;
 import com.yc.clickhouse.config.annotation.ClickHouseTable;
+import com.yc.clickhouse.entity._BaseEntity;
 import lombok.Data;
 import java.io.Serializable;
 import java.util.Date;

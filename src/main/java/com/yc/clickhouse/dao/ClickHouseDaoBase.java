@@ -9,6 +9,7 @@ import com.yc.clickhouse.utils.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.beanutils.BeanUtils;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import javax.persistence.Column;
@@ -254,7 +255,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
     public int selectCount(String sqlWhere, Object[] params) {
         StringBuffer stringBuffer = new StringBuffer("select count(*) as count from ").append(this.getTableName());
         if (sqlWhere != null) {
-            stringBuffer.append(sqlWhere);
+            stringBuffer.append(" ").append(sqlWhere);
         }
         log.info(stringBuffer.toString());
         try {
@@ -270,7 +271,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         }finally {
 //            close(preparedStatement,conn,null);
         }
-        return 0;
+        return -1;
     }
 
     /**
@@ -279,7 +280,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
      * @return
      */
     public int selectCount(String tableSql) {
-        tableSql = "select count(t.*) as count from (" + tableSql + ") t";//手动构造统计
+        tableSql = "select count(1) as count from (" + tableSql + ") t";//手动构造统计
         log.info("selectCount " + tableSql);
 
         Statement statement = null;
@@ -287,7 +288,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         try {
             conn = getConnection();
             statement = conn.createStatement();
-
             resultSet = statement.executeQuery(tableSql);
             if (resultSet != null) {
                 try {
@@ -320,7 +320,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         if (sqlWhere == null) {
             sql.append(" limit ").append(start).append(",").append(size);
         } else {
-            sql.append(sqlWhere).append(" limit ").append(start).append(",").append(size);
+            sql.append(" ").append(sqlWhere).append(" limit ").append(start).append(",").append(size);
         }
 
         log.info("selectPage " + sql.toString());
@@ -332,7 +332,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
             preparedStatement = conn.prepareStatement(sql.toString());
             putPrepareStatementParams(preparedStatement, params);
             resultSet = preparedStatement.executeQuery();
-            return mapResultSetToObject(resultSet);
+            return mapResultSetToPO(resultSet);
         } catch (Exception e) {
             log.error("发生了异常",e);
         } finally {
@@ -378,7 +378,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
      * @return
      */
     private List<Map<String, Object>> mapResultSetToMap(ResultSet rs) {
-        List<Map<String, Object>> outputList = null;
+        List<Map<String, Object>> outputList = new ArrayList<>();
         try {
             if (rs != null) {
                 ResultSetMetaData rsmd = rs.getMetaData();
@@ -388,10 +388,34 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
                     for (int _iterator = 0; _iterator < rsmd.getColumnCount(); _iterator++) {
                         resultMap.put(rsmd.getColumnName(_iterator + 1), rs.getObject(_iterator + 1));
                     }
-                    if (outputList == null) {
-                        outputList = new ArrayList<>();
-                    }
                     outputList.add(resultMap);
+                }
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("发生了异常",e);
+        }
+        return outputList;
+    }
+
+    /**
+     * 返回结果数据封装成List对象map集合格式返回
+     *
+     * @param rs
+     * @return
+     */
+    private List mapResultSetToObject(ResultSet rs) {
+        List<List<Object>> outputList = new ArrayList<>();
+        try {
+            if (rs != null) {
+                ResultSetMetaData rsmd = rs.getMetaData();
+                List<Object> cellList = new ArrayList<>();
+                while (rs.next()) {
+                    for (int _iterator = 0; _iterator < rsmd.getColumnCount(); _iterator++) {
+                        cellList.add(rs.getObject(_iterator + 1));
+                    }
+                    outputList.add(cellList);
                 }
             } else {
                 return null;
@@ -409,46 +433,39 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
      * @return
      */
     @SuppressWarnings("unchecked")
-    private List<T> mapResultSetToObject(ResultSet rs) {
-        List<T> outputList = null;
+    private List<T> mapResultSetToPO(ResultSet rs) {
+        List<T> outputList = new ArrayList<T>();
         try {
-            // make sure resultSetet is not null
             if (rs != null) {
-                // check if outputClass has 'Entity' annotation
-                Class outputClass = getTClass();
-                if (outputClass.isAnnotationPresent(Entity.class)) {
-                    // get the resultSetet metadata
-                    ResultSetMetaData rsmd = rs.getMetaData();
-                    // get all the attributes of outputClass
-//                    Field[] fields = outputClass.getDeclaredFields();
-                    Class currClass = outputClass;
-                    List<Field> fields = new ArrayList<>();
-                    while (outputClass != null) {   //当父类为null的时候说明到达了最上层的父类(Object类).
-                        fields.addAll(Arrays.asList(outputClass.getDeclaredFields()));
-                        outputClass = outputClass.getSuperclass(); //得到父类,然后赋给自己
-                    }
+                if (this.getTClass().isAnnotationPresent(Entity.class)) {
+                    ResultSetMetaData resultSetMetaData = rs.getMetaData();
+                    Field[] fields = getAllFieldList();
+                    //字段名字，详细信息map
+                    Map<String,Field>  nameFieldMap = new HashMap<>();
+                    //循环行赋值
                     while (rs.next()) {
-                        T bean = (T) currClass.newInstance();
-                        for (int _iterator = 0; _iterator < rsmd.getColumnCount(); _iterator++) {
-                            // getting the SQL column name
-                            String columnName = rsmd.getColumnName(_iterator + 1);
-                            // reading the value of the SQL column
+                        T bean = (T) this.getTClass().newInstance();
+                        //循环列赋值
+                        for (int _iterator = 0; _iterator < resultSetMetaData.getColumnCount(); _iterator++) {
+                            String columnName = resultSetMetaData.getColumnName(_iterator + 1);
                             Object columnValue = rs.getObject(_iterator + 1);
-                            // iterating over outputClass attributes to check if
-                            // any attribute has 'Column' annotation with
-                            // matching 'name' value
-                            for (Field field : fields) {
-                                if (field.isAnnotationPresent(Column.class)) {
-                                    Column column = field.getAnnotation(Column.class);
-                                    if (column.name().equalsIgnoreCase(columnName) && columnValue != null) {
+                            if(StringUtils.isEmpty(columnName) || columnValue == null){
+                                continue;
+                            }
+                            //字段赋值
+                            if(nameFieldMap.containsKey(columnName)){
+                                Field field = nameFieldMap.get(columnName);
+                                BeanUtils.setProperty(bean, field == null ? null : field.getName(), columnValue);
+                            }else{
+                                for (Field field : fields) {
+                                    if (field.isAnnotationPresent(Column.class) && field.getAnnotation(Column.class).name().equalsIgnoreCase(columnName)) {
+                                        nameFieldMap.put(columnName,field);
                                         BeanUtils.setProperty(bean, field.getName(), columnValue);
                                         break;
                                     }
+                                    nameFieldMap.put(columnName,null);
                                 }
                             }
-                        }
-                        if (outputList == null) {
-                            outputList = new ArrayList<T>();
                         }
                         outputList.add(bean);
                     }
@@ -557,7 +574,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
             if ("map".equals(type)) {
                 backList = mapResultSetToMap(resultSet);
             } else if ("obj".equals(type)) {
-                backList = mapResultSetToObject(resultSet);
+                backList = mapResultSetToPO(resultSet);
             }
             if (backList != null) {
                 log.debug("查询出数据size：{}", backList.size());
@@ -629,7 +646,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
                     return (T) resultSet.getObject(1);
                 }
             } else {
-                List<T> list = mapResultSetToObject(resultSet);
+                List<T> list = mapResultSetToPO(resultSet);
                 return CollectionUtils.isEmpty(list) ? null : list.get(0);
             }
         } catch (SQLException e) {
@@ -646,107 +663,108 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
      * @param list
      */
     public void batchInsert(List<T> list) {
-        String tableName = getTableName();
-        if (CollectionUtils.isEmpty(list) || StringUtil.isEmpty(tableName)){
-            return;
-        }
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        Field[] fields = null;
-        int fieldSize = 0;
-        try {
-            Long startTime = System.currentTimeMillis();
-            // 此处查询一次，只为了获取对应列名索引，进而插入对应值
-            conn = getConnection();
-            resultSet = conn.createStatement().executeQuery(Constant.QUERY + Constant.WILDCARD + Constant.FROM + tableName + Constant.LIMIT + 1);
-            Map<String, Integer> indexMap = new HashMap<>();
-            // 将列名和对应索引存入indexMap
-            for (int a = 1; a <= resultSet.getMetaData().getColumnCount(); a++) {
-                indexMap.put(resultSet.getMetaData().getColumnName(a), a);
-            }
-            int batch = 0;
-            for (T obj : list) {
-                batch++;
-                if (null == fields || fieldSize == 0) {
-                    StringBuffer sql = new StringBuffer(Constant.ADD + tableName + " values(");
-                    fields =  this.getAllFieldList();
-                    fieldSize = fields.length;
-                    for (int i = 0; i < fieldSize; i++) {
-                        //如果没有注解或者注解的列是空
-                        if (!fields[i].isAnnotationPresent(Column.class) || fields[i].getAnnotation(Column.class) == null) {
-                            continue;
-                        }
-                        sql.append("?,");
-                    }
-                    sql.deleteCharAt(sql.length() - 1);
-                    sql.append(")");
-                    preparedStatement = conn.prepareStatement(sql.toString());
-                    log.info("批量插入" + tableName + "打印执行sql: " + sql);
-                }
-
-                for (int j = 0; j < fieldSize; j++) {
-                    fields[j].setAccessible(true);
-                    //如果没有注解或者注解的列是空
-                    if (!fields[j].isAnnotationPresent(Column.class) || fields[j].getAnnotation(Column.class) == null) {
-                        continue;
-                    }
-                    // 获取当前需要插入的列名
-                    String columnName = fields[j].getAnnotation(Column.class).name();
-                    // 将value set到对应的列位
-                    if (StringUtil.isNotNull(fields[j].get(obj))) {
-                        if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.TIMESTAMP) {
-                            if (fields[j].get(obj) instanceof Timestamp) {
-                                preparedStatement.setTimestamp(indexMap.get(columnName), (Timestamp) fields[j].get(obj));
-                            } else if (fields[j].get(obj) instanceof Date) {
-                                preparedStatement.setTimestamp(indexMap.get(columnName), new java.sql.Timestamp(((Date) fields[j].get(obj)).getTime()));
-                            } else {
-                                preparedStatement.setTimestamp(indexMap.get(columnName), null);
-                            }
-                        } else if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.DATE) {
-                            if (fields[j].get(obj) instanceof java.sql.Date) {
-                                preparedStatement.setDate(indexMap.get(columnName), (java.sql.Date) fields[j].get(obj));
-                            } else if (fields[j].get(obj) instanceof Date) {
-                                preparedStatement.setDate(indexMap.get(columnName), new java.sql.Date(((Date) fields[j].get(obj)).getTime()));
-                            } else if (fields[j].get(obj) instanceof String) {
-                                preparedStatement.setString(indexMap.get(columnName), fields[j].get(obj).toString());
-                            } else {
-                                preparedStatement.setDate(indexMap.get(columnName), null);
-                            }
-                        } else if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.DECIMAL) {
-                            if (fields[j].get(obj) instanceof BigDecimal) {
-                                preparedStatement.setBigDecimal(indexMap.get(columnName), (BigDecimal) fields[j].get(obj));
-                            } else if (fields[j].get(obj) instanceof String) {
-                                preparedStatement.setBigDecimal(indexMap.get(columnName), new BigDecimal(fields[j].get(obj).toString()));
-                            } else if (fields[j].get(obj) instanceof Number) {
-                                preparedStatement.setBigDecimal(indexMap.get(columnName), BigDecimal.valueOf((Double) fields[j].get(obj)));
-                            } else {
-                                preparedStatement.setBigDecimal(indexMap.get(columnName), null);
-                            }
-                        } else {
-                            preparedStatement.setObject(indexMap.get(columnName), fields[j].get(obj));
-                        }
-                    } else {
-                        preparedStatement.setObject(indexMap.get(columnName), null);
-                    }
-                }
-                preparedStatement.addBatch();
-                // 每2000插入一次
-                if (batch % 2000 == 0) {
-                    preparedStatement.executeBatch();
-                }
-            }
-            if(batch % 2000 != 0){
-                // 插入剩余数量不足2000的
-                preparedStatement.executeBatch();
-            }
-            indexMap = null;
-            Long endTime = System.currentTimeMillis();
-            log.info("集合size：{}，批量插入{}成功,耗时{}ms......", list.size(), tableName, (endTime - startTime));
-        } catch (Exception e1) {
-            log.error("集合size：{}，批量插入{}异常：{}", list.size(), tableName, e1.getMessage());
-        } finally {
-            //close(preparedStatement, conn, resultSet);
-        }
+        //TODO 需要优化
+//        String tableName = getTableName();
+//        if (CollectionUtils.isEmpty(list) || StringUtil.isEmpty(tableName)){
+//            return;
+//        }
+//        PreparedStatement preparedStatement = null;
+//        ResultSet resultSet = null;
+//        Field[] fields = null;
+//        int fieldSize = 0;
+//        try {
+//            Long startTime = System.currentTimeMillis();
+//            // 此处查询一次，只为了获取对应列名索引，进而插入对应值
+//            conn = getConnection();
+//            resultSet = conn.createStatement().executeQuery(Constant.QUERY + Constant.WILDCARD + Constant.FROM + tableName + Constant.LIMIT + 1);
+//            Map<String, Integer> indexMap = new HashMap<>();
+//            // 将列名和对应索引存入indexMap
+//            for (int a = 1; a <= resultSet.getMetaData().getColumnCount(); a++) {
+//                indexMap.put(resultSet.getMetaData().getColumnName(a), a);
+//            }
+//            int batch = 0;
+//            for (T obj : list) {
+//                batch++;
+//                if (null == fields || fieldSize == 0) {
+//                    StringBuffer sql = new StringBuffer(Constant.ADD + tableName + " values(");
+//                    fields =  this.getAllFieldList();
+//                    fieldSize = fields.length;
+//                    for (int i = 0; i < fieldSize; i++) {
+//                        //如果没有注解或者注解的列是空
+//                        if (!fields[i].isAnnotationPresent(Column.class) || fields[i].getAnnotation(Column.class) == null) {
+//                            continue;
+//                        }
+//                        sql.append("?,");
+//                    }
+//                    sql.deleteCharAt(sql.length() - 1);
+//                    sql.append(")");
+//                    preparedStatement = conn.prepareStatement(sql.toString());
+//                    log.info("批量插入" + tableName + "打印执行sql: " + sql);
+//                }
+//
+//                for (int j = 0; j < fieldSize; j++) {
+//                    fields[j].setAccessible(true);
+//                    //如果没有注解或者注解的列是空
+//                    if (!fields[j].isAnnotationPresent(Column.class) || fields[j].getAnnotation(Column.class) == null) {
+//                        continue;
+//                    }
+//                    // 获取当前需要插入的列名
+//                    String columnName = fields[j].getAnnotation(Column.class).name();
+//                    // 将value set到对应的列位
+//                    if (StringUtil.isNotNull(fields[j].get(obj))) {
+//                        if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.TIMESTAMP) {
+//                            if (fields[j].get(obj) instanceof Timestamp) {
+//                                preparedStatement.setTimestamp(indexMap.get(columnName), (Timestamp) fields[j].get(obj));
+//                            } else if (fields[j].get(obj) instanceof Date) {
+//                                preparedStatement.setTimestamp(indexMap.get(columnName), new java.sql.Timestamp(((Date) fields[j].get(obj)).getTime()));
+//                            } else {
+//                                preparedStatement.setTimestamp(indexMap.get(columnName), null);
+//                            }
+//                        } else if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.DATE) {
+//                            if (fields[j].get(obj) instanceof java.sql.Date) {
+//                                preparedStatement.setDate(indexMap.get(columnName), (java.sql.Date) fields[j].get(obj));
+//                            } else if (fields[j].get(obj) instanceof Date) {
+//                                preparedStatement.setDate(indexMap.get(columnName), new java.sql.Date(((Date) fields[j].get(obj)).getTime()));
+//                            } else if (fields[j].get(obj) instanceof String) {
+//                                preparedStatement.setString(indexMap.get(columnName), fields[j].get(obj).toString());
+//                            } else {
+//                                preparedStatement.setDate(indexMap.get(columnName), null);
+//                            }
+//                        } else if (resultSet.getMetaData().getColumnType(indexMap.get(columnName)) == Types.DECIMAL) {
+//                            if (fields[j].get(obj) instanceof BigDecimal) {
+//                                preparedStatement.setBigDecimal(indexMap.get(columnName), (BigDecimal) fields[j].get(obj));
+//                            } else if (fields[j].get(obj) instanceof String) {
+//                                preparedStatement.setBigDecimal(indexMap.get(columnName), new BigDecimal(fields[j].get(obj).toString()));
+//                            } else if (fields[j].get(obj) instanceof Number) {
+//                                preparedStatement.setBigDecimal(indexMap.get(columnName), BigDecimal.valueOf((Double) fields[j].get(obj)));
+//                            } else {
+//                                preparedStatement.setBigDecimal(indexMap.get(columnName), null);
+//                            }
+//                        } else {
+//                            preparedStatement.setObject(indexMap.get(columnName), fields[j].get(obj));
+//                        }
+//                    } else {
+//                        preparedStatement.setObject(indexMap.get(columnName), null);
+//                    }
+//                }
+//                preparedStatement.addBatch();
+//                // 每2000插入一次
+//                if (batch % 2000 == 0) {
+//                    preparedStatement.executeBatch();
+//                }
+//            }
+//            if(batch % 2000 != 0){
+//                // 插入剩余数量不足2000的
+//                preparedStatement.executeBatch();
+//            }
+//            indexMap = null;
+//            Long endTime = System.currentTimeMillis();
+//            log.info("集合size：{}，批量插入{}成功,耗时{}ms......", list.size(), tableName, (endTime - startTime));
+//        } catch (Exception e1) {
+//            log.error("集合size：{}，批量插入{}异常：{}", list.size(), tableName, e1.getMessage());
+//        } finally {
+//            //close(preparedStatement, conn, resultSet);
+//        }
     }
 
     /**
@@ -760,7 +778,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
             return;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
-        String[] fields = null;
+        String[] fieldsStr = null;
         int fieldSize = 0;
         try {
             Long startTime = System.currentTimeMillis();
@@ -776,12 +794,12 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
             Object value;
             for (Map<String, Object> map : list) {
                 batch++;
-                if (null == fields || fieldSize == 0) {
+                if (null == fieldsStr || fieldSize == 0) {
                     StringBuffer sql = new StringBuffer(Constant.ADD + tableName + " (");
-                    fields = map.keySet().toArray(new String[map.keySet().size()]);
-                    fieldSize = fields.length;
+                    fieldsStr = map.keySet().toArray(new String[map.keySet().size()]);
+                    fieldSize = fieldsStr.length;
                     for (int i = 0; i < fieldSize; i++) {
-                        sql.append(fields[i] + ",");
+                        sql.append(fieldsStr[i] + ",");
                     }
                     sql.deleteCharAt(sql.length() - 1);
                     sql.append(") values(");
@@ -795,7 +813,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
                 }
                 for (int j = 0; j < fieldSize; j++) {
                     // 获取当前需要插入的列名
-                    value = map.get(fields[j]);
+                    value = map.get(fieldsStr[j]);
                     // 将value set到对应的列位
                     if (value instanceof Integer) {
                         preparedStatement.setInt(j + 1, (Integer) value);
@@ -863,7 +881,26 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 //            close(statement, conn, null);
         }
     }
-
+    public List execute( String sql) {
+        log.info("clickHouse 查询集合数据执行sql：" + sql);
+        try {
+            conn = getConnection();
+            Statement statement = conn.prepareStatement(sql);
+            ResultSet resultSet = statement.executeQuery(sql);
+            List backList = mapResultSetToObject(resultSet);
+            if (backList != null) {
+                log.debug("查询出数据size：{}", backList.size());
+            } else {
+                log.debug("ResultSet is empty. Please check if database table is empty");
+            }
+            return backList;
+        } catch (SQLException e) {
+            log.error("发生了异常", e);
+        } finally {//关闭连接
+            //close(preparedStatement, conn, resultSet);
+        }
+        return null;
+    }
     @Override
     protected void finalize() throws Throwable {
         close(null, conn, null);

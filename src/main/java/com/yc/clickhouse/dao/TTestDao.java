@@ -1,5 +1,5 @@
 package com.yc.clickhouse.dao;
-import com.yc.clickhouse.entity.TTest;
+import com.yc.clickhouse.po.TTest;
 import org.springframework.stereotype.Component;
 
 

@@ -217,13 +217,13 @@ public class MetaUtil {
     private final void createPoFileFromTable(String domain, String dbName, String tableName, String className, String outputDir)
             throws Exception {
         TableMetaData md = getMetaData(dbName, tableName);
-        File destDir = new File(outputDir + "/src/main/java/" + domain.replace(".", "/") + "/entity/");
+        File destDir = new File(outputDir + "/src/main/java/" + domain.replace(".", "/") + "/po/");
         if (!destDir.exists()) {
             destDir.mkdirs();
         }
 
         BufferedWriter writer = new BufferedWriter(new FileWriter(destDir + "/" + className + ".java"));
-        writer.write("package " + domain + ".entity;");
+        writer.write("package " + domain + ".po;");
         writer.newLine();
 
         // 导入 注解类
