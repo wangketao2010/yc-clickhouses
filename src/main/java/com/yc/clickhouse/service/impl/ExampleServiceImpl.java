@@ -1,7 +1,7 @@
 package com.yc.clickhouse.service.impl;
 
-import com.yc.clickhouse.dao.TDao;
-import com.yc.clickhouse.entity.T;
+import com.yc.clickhouse.dao.TTestDao;
+import com.yc.clickhouse.entity.TTest;
 import com.yc.clickhouse.service.ExampleService;
 import org.springframework.stereotype.Component;
 
@@ -17,22 +17,22 @@ import java.util.Map;
 public class ExampleServiceImpl implements ExampleService {
 
     @Resource
-    private TDao tDao;
+    private TTestDao tTestDao;
 
     @Override
     public void test() {
         String sql = "SELECT * FROM t_test";
-        List<T> a = tDao.selectListObj(sql, null);
-        T obj = tDao.selectOne(sql, null);
-        List<T> list = new ArrayList<>();
-        tDao.batchInsert(list);
-        tDao.executeInsertUpdateDelete(sql);
+        List<TTest> a = tTestDao.selectListObj(sql, null);
+        TTest obj = tTestDao.selectOne(sql, null);
+        List<TTest> list = new ArrayList<>();
+        tTestDao.batchInsert(list);
+        tTestDao.executeInsertUpdateDelete(sql);
         Object[] params = new Object[]{1, 2};
-        tDao.selectListObj(sql, params);
+        tTestDao.selectListObj(sql, params);
         params = new Object[]{3, 2};
-        List<Map<String, Object>> b = tDao.selectListMap(sql, params);
+        List<Map<String, Object>> b = tTestDao.selectListMap(sql, params);
         List<Map<String, Object>> list1 = new ArrayList<>();
-        tDao.batchInsertExt(list1);
+        tTestDao.batchInsertExt(list1);
     }
 
 
