@@ -24,7 +24,7 @@ public class Generate {
         DBUtil.USERNAME = USERNAME;
         DBUtil.PASSWORD = PASSWORD;
         DBUtil.DIREVER = DIREVER;
-        execute("com.clickhouse.core", "clickHouse-core", "default", Arrays.asList("t"));
+        execute("com.yc.clickhouse", "", "default", Arrays.asList("t_test"));
     }
     /**
      * 实体类生成

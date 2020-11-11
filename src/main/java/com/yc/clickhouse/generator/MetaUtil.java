@@ -136,14 +136,14 @@ public class MetaUtil {
             }
             List<String> allDBTableNames = getAllDBTableNames();
 
-            System.err.println("===================== AutoGenCode start ========================");
+            System.out.println("===================== AutoGenCode start ========================");
             for (String tName : tableNamesToCreate) {
                 if (allDBTableNames.contains(tName)) {
                     createPoFileFromTable(domain, dbName, tName, getClassName(tName.trim()), outputDir);
                     createDAOFileFromTable(domain, tName, getClassName(tName.trim()), outputDir);
                 }
             }
-            System.err.println("===================== AutoGenCode end ========================");
+            System.out.println("===================== AutoGenCode end ========================");
         } catch (Exception e) {
             throw new RuntimeException("", e);
         }
@@ -231,6 +231,10 @@ public class MetaUtil {
         writer.newLine();
         writer.write("import javax.persistence.Entity;");
         writer.newLine();
+        writer.write("import com.yc.clickhouse.config.annotation.ClickHousePrimaryKey;");
+        writer.newLine();
+        writer.write("import com.yc.clickhouse.config.annotation.ClickHouseTable;");
+        writer.newLine();
 
         // 导入 lombok
         writer.write("import lombok.Data;");
@@ -259,7 +263,19 @@ public class MetaUtil {
             }
         }
         writer.newLine();
-
+        writer.newLine();
+        writer.write("/**");
+        writer.newLine();
+        writer.write(" * 功能描述");
+        writer.newLine();
+        writer.write(" *");
+        writer.newLine();
+        writer.write(" * @author ??");
+        writer.newLine();
+        writer.write(" * @date "+LocalDate.now().toString());
+        writer.newLine();
+        writer.write(" */");
+        writer.newLine();
         // 导入注解
         writer.write("@Entity");
         writer.newLine();
@@ -351,12 +367,14 @@ public class MetaUtil {
             writer.newLine();
             writer.write("@Component");
             writer.newLine();
-            writer.write("public class " + className + "Dao  extends ClickHouseDaoBase<T> {");
+            writer.write("public class " + className + "Dao  extends ClickHouseDaoBase<"+className+"> {");
             writer.newLine();
             writer.newLine();
+            writer.write("    //====================大多数情况下，这里不用写任何东西==================");
+            writer.newLine();
+            writer.write("    //==========you don`t need to write anything in most of times=========");
             writer.newLine();
             writer.newLine();
-
             writer.write("}");
         } catch (Exception e) {
             throw new RuntimeException(e);

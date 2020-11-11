@@ -50,7 +50,7 @@ public class ClickHouseTest<T> {
         String deleteSql = Constant.ALTER_TABLE + tableName + Constant.CK_CLUSTER_NAME + Constant.DELETE + Constant.WHERE + " asset_id = '%s'";
         deleteSql = String.format(deleteSql, assetId);
         System.out.println("打印执行SQL：" + deleteSql);
-        exampleService.executeBySql(deleteSql);
+        exampleService.test();
         System.out.println("执行deleteTest()方法完成.....");
     }
 
