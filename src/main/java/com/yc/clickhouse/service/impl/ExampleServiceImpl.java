@@ -1,7 +1,8 @@
 package com.yc.clickhouse.service.impl;
 
-import com.yc.clickhouse.service.ClickHouseService;
-import com.yc.clickhouse.dao.ClickHouseDaoBase;
+import com.yc.clickhouse.dao.TDao;
+import com.yc.clickhouse.entity.T;
+import com.yc.clickhouse.service.ExampleService;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -11,36 +12,33 @@ import java.util.Map;
 /**
  * clickHouse 服务实现类
  *
- * @param <T>
  */
 @Component
-public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
+public class ExampleServiceImpl implements ExampleService {
 
     @Resource
-    private ClickHouseDaoBase clickHouseDaoBase;
+    private TDao tDao;
 
     /**
      * 根据传入SQL条件，返回集合数据
      *
-     * @param clazz
      * @param sql
      * @return
      */
     @Override
-    public List<T> selectList(Class<T> clazz, String sql) {
-        return clickHouseDaoBase.selectListObj(sql,null);
+    public List<T> selectList( String sql) {
+        return tDao.selectListObj(sql,null);
     }
 
     /**
      * 根据传入SQL条件，返回一条数据
      *
-     * @param clazz
      * @param sql
      * @return
      */
     @Override
-    public T selectInfo(Class<T> clazz, String sql) {
-        return (T) clickHouseDaoBase.selectOne(sql,null);
+    public T selectInfo( String sql) {
+        return (T) tDao.selectOne(sql,null);
     }
 
     /**
@@ -51,7 +49,7 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void batchInsert(List<T> list, String tableName) {
-        clickHouseDaoBase.batchInsert(list);
+        tDao.batchInsert(list);
     }
 
     /**
@@ -61,33 +59,31 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void executeBySql(String sql) {
-        clickHouseDaoBase.executeInsertUpdateDelete(sql);
+        tDao.executeInsertUpdateDelete(sql);
     }
 
     /**
      * 根据传入SQL条件以及参数，返回集合数据
      *
-     * @param clazz
      * @param sql
      * @param params
      * @return
      */
     @Override
-    public List<T> selectList(Class<T> clazz, String sql, Object[] params) {
-        return clickHouseDaoBase.selectListObj(sql, params);
+    public List<T> selectListObj( String sql, Object[] params) {
+        return tDao.selectListObj(sql, params);
     }
 
     /**
      * 根据传入SQL条件以及参数，返回一条数据
      *
-     * @param clazz
      * @param sql
      * @param params
      * @return
      */
     @Override
-    public T selectInfo(Class<T> clazz, String sql, Object[] params) {
-        return (T) clickHouseDaoBase.selectOne( sql, params);
+    public T selectInfo( String sql, Object[] params) {
+        return tDao.selectOne( sql, params);
     }
 
     /**
@@ -98,8 +94,8 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      * @return
      */
     @Override
-    public List<Map<String, Object>> selectList(String sql, Object[] params) {
-        return clickHouseDaoBase.selectListObj(sql, params);
+    public List<Map<String, Object>> selectListMap(String sql, Object[] params) {
+        return tDao.selectListMap(sql, params);
     }
 
     /**
@@ -110,6 +106,6 @@ public class ClickHouseServiceImpl<T> implements ClickHouseService<T> {
      */
     @Override
     public void batchInsertExt(List<Map<String, Object>> list, String tableName) {
-        clickHouseDaoBase.batchInsertExt(list);
+        tDao.batchInsertExt(list);
     }
 }

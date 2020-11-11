@@ -8,6 +8,8 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -125,23 +127,20 @@ public class MetaUtil {
      * @param domain
      * @param outputDir
      * @param dbName
-     * @param tableName
+     * @param tableNamesToCreate
      */
-    public final void execute(String domain, String outputDir, String dbName, List<String> tableName) {
-        String[] tableNames = null;
+    public final void execute(String domain, String outputDir, String dbName, List<String> tableNamesToCreate) {
         try {
             if (!StringUtils.hasText(outputDir)) {
                 outputDir = System.getProperty("user.dir");
             }
-            if (tableNames == null || tableNames.length == 0) {
-                tableNames = new String[]{};
-                tableNames = getTableNames().toArray(tableNames);
-            }
+            List<String> allDBTableNames = getAllDBTableNames();
 
             System.err.println("===================== AutoGenCode start ========================");
-            for (String tName : tableNames) {
-                if (tableName.contains(tName)) {
-                    genPoClassFromTable(domain, dbName, tName, getClassName(tName.trim()), outputDir);
+            for (String tName : tableNamesToCreate) {
+                if (allDBTableNames.contains(tName)) {
+                    createPoFileFromTable(domain, dbName, tName, getClassName(tName.trim()), outputDir);
+                    createDAOFileFromTable(domain, tName, getClassName(tName.trim()), outputDir);
                 }
             }
             System.err.println("===================== AutoGenCode end ========================");
@@ -183,7 +182,7 @@ public class MetaUtil {
      *
      * @return
      */
-    public static List<String> getTableNames() {
+    public static List<String> getAllDBTableNames() {
         Connection conn = null;
         Statement stmt = null;
         ResultSet rs = null;
@@ -215,7 +214,7 @@ public class MetaUtil {
      * @param outputDir
      * @throws Exception
      */
-    private final void genPoClassFromTable(String domain, String dbName, String tableName, String className, String outputDir)
+    private final void createPoFileFromTable(String domain, String dbName, String tableName, String className, String outputDir)
             throws Exception {
         TableMetaData md = getMetaData(dbName, tableName);
         File destDir = new File(outputDir + "/src/main/java/" + domain.replace(".", "/") + "/entity/");
@@ -266,11 +265,13 @@ public class MetaUtil {
         writer.newLine();
         writer.write("@Data");
         writer.newLine();
+        writer.write("@ClickHouseTable(name = \"" + tableName + "\")");
+        writer.newLine();
 
-        writer.write("public class " + className + " implements Serializable {");
+        writer.write("public class " + className + "  extends _BaseEntity implements Serializable {");
         writer.newLine();
         writer.newLine();
-        writer.write("	private static final long serialVersionUID = -2260388125919493487L;");
+        writer.write("	//private static final long serialVersionUID = L;");//没想好怎么生成kt
         writer.newLine();
 
         try {
@@ -300,6 +301,62 @@ public class MetaUtil {
 //                String javaField = DB4JUtil.getSql2JavaField(f.getField());
 //                genGetterAndSetter(writer, javaType, javaField);
 //            }
+            writer.write("}");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            writer.flush();
+            writer.close();
+        }
+    }
+    /**
+     * 根据表结构列生成表实体对象
+     *
+     * @param domain
+     * @param tableName
+     * @param className
+     * @param outputDir
+     * @throws Exception
+     */
+    private final void createDAOFileFromTable(String domain, String tableName, String className, String outputDir)
+            throws Exception {
+        File destDir = new File(outputDir + "/src/main/java/" + domain.replace(".", "/") + "/dao/");
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(destDir + "/" + className + "Dao" + ".java"));
+        try {
+            writer.write("package " + domain + ".dao;");
+            writer.newLine();
+
+            // 导入 注解类
+            writer.write("import com.yc.clickhouse.entity." + className + ";");
+            writer.newLine();
+            writer.write("import org.springframework.stereotype.Component;");
+            writer.newLine();
+            writer.newLine();
+            writer.newLine();
+            writer.write("/**");
+            writer.newLine();
+            writer.write(" * 功能描述");
+            writer.newLine();
+            writer.write(" *");
+            writer.newLine();
+            writer.write(" * @author ??");
+            writer.newLine();
+            writer.write(" * @date "+LocalDate.now().toString());
+            writer.newLine();
+            writer.write(" */");
+            writer.newLine();
+            writer.write("@Component");
+            writer.newLine();
+            writer.write("public class " + className + "Dao  extends ClickHouseDaoBase<T> {");
+            writer.newLine();
+            writer.newLine();
+            writer.newLine();
+            writer.newLine();
+
             writer.write("}");
         } catch (Exception e) {
             throw new RuntimeException(e);

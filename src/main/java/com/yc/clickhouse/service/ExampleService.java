@@ -2,32 +2,30 @@ package com.yc.clickhouse.service;
 
 import java.util.List;
 import java.util.Map;
+import com.yc.clickhouse.entity.T;
 
 /**
  * clickHouse 公共服务接口
  *
- * @param <T>
  */
-public interface ClickHouseService<T> {
+public interface ExampleService {
 
     /**
      * 根据传入SQL条件，返回集合数据
      *
-     * @param clazz
      * @param sql
      * @return
      */
-    List<T> selectList(Class<T> clazz, String sql);
+    List<T> selectList(String sql);
 
     /**
      * 根据传入SQL条件以及参数，返回集合数据
      *
-     * @param clazz
      * @param sql
      * @param params
      * @return
      */
-    List<T> selectList(Class<T> clazz, String sql, Object[] params);
+    List<T> selectListObj(String sql, Object[] params);
 
 
     /**
@@ -37,26 +35,24 @@ public interface ClickHouseService<T> {
      * @param params
      * @return
      */
-    List<Map<String, Object>> selectList(String sql, Object[] params);
+    List<Map<String, Object>> selectListMap(String sql, Object[] params);
 
     /**
      * 根据传入SQL条件，返回一条对象数据
      *
-     * @param clazz
      * @param sql
      * @return
      */
-    T selectInfo(Class<T> clazz, String sql);
+    T selectInfo(String sql);
 
     /**
      * 根据传入SQL条件以及参数，返回一条对象数据
      *
-     * @param clazz
      * @param sql
      * @param params
      * @return
      */
-    T selectInfo(Class<T> clazz, String sql, Object[] params);
+    T selectInfo(String sql, Object[] params);
 
     /**
      * 批量插入实体对象集合数据

@@ -126,26 +126,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         return allFieldList;
     }
 
-//    /**
-//     * 预编译SQL
-//     *
-//     * @param sql
-//     * @param values
-//     * @return
-//     */
-//    private PreparedStatement createPreparedStatement(String sql, Object[] values) {
-//        PreparedStatement preparedStatement = null;
-//        try {
-//            preparedStatement = getConnection().prepareStatement(sql);
-//            for (int i = 0; i < values.length; i++) {
-//                preparedStatement.setObject(i + 1, values[i]);
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//        return preparedStatement;
-//    }
-
     /**
      * 不同于普通SQL的修改和删除，alter table [tableName] update……where……
      * 根据构造的对象，以ID为条件来修改
@@ -184,15 +164,10 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         log.info("updateByPrimaryKey " + sql.toString());
 
         // 开始修改
-        Connection conn = getConnection();
         try {
+            conn = getConnection();
             PreparedStatement preparedStatement = conn.prepareStatement(sql.toString());
             putPrepareStatementParams(preparedStatement,setValue.toArray());
-//            for (Object value : setValue) {
-//                int index = 1;//preparedStatement的占位
-//                preparedStatement.setObject(index, value);
-//                index++;
-//            }
             int res = preparedStatement.executeUpdate();//提交修改
 //            conn.commit();// 执行
             log.info("修改结果：[{}]", res);
@@ -217,22 +192,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
     public int updateBySql(String fullSql) {
         log.info("updateBySql " + fullSql);
         return this.executeInsertUpdateDelete(fullSql);
-//        Connection conn = getConnection();
-//        Statement statement = null;
-//        try {
-//            statement = conn.createStatement();
-//            int update = statement.executeUpdate(sql);
-//            conn.commit();// 执行
-//            return update;
-//        } catch (Exception e) {
-//            try {
-//                conn.rollback();//异常回滚
-//            } catch (Exception e1) {
-//                log.error("发生了异常",e);
-//            }
-//            log.error("发生了异常",e);
-//        }
-//        return 0;
     }
 
     /**
@@ -256,10 +215,9 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 
         log.info("deleteByPrimaryKey " + sql);
 
-        Connection conn = getConnection();
-        PreparedStatement preparedStatement = null;
         try {
-            preparedStatement = conn.prepareStatement(sql);
+            conn = getConnection();
+            PreparedStatement preparedStatement = conn.prepareStatement(sql);
             preparedStatement.setObject(1, primaryKey);
             int res = preparedStatement.executeUpdate();//提交删除
 //            conn.commit();// 执行
@@ -284,22 +242,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
     public int deleteBySql(String fullSql){
         log.info("deleteBySql " + fullSql);
         return executeInsertUpdateDelete(fullSql);
-//        Connection conn = getConnection();
-//        Statement statement = null;
-//        try {
-//            statement = conn.createStatement();
-//            int update = statement.executeUpdate(fullSql);
-//            conn.commit();// 执行
-//            return update;
-//        } catch (Exception e) {
-//            try {
-//                conn.rollback();//异常回滚
-//            } catch (Exception e1) {
-//                log.error("发生了异常",e);
-//            }
-//            log.error("发生了异常",e);
-//        }
-//        return 0;
     }
 
     /**
@@ -315,11 +257,9 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
             stringBuffer.append(sqlWhere);
         }
         log.info(stringBuffer.toString());
-        Connection conn=null;
-        PreparedStatement preparedStatement = null;
         try {
             conn = getConnection();
-            preparedStatement = conn.prepareStatement(stringBuffer.toString());
+            PreparedStatement preparedStatement = conn.prepareStatement(stringBuffer.toString());
             putPrepareStatementParams(preparedStatement,params);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
@@ -328,7 +268,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (Exception e) {
             log.error("发生了异常",e);
         }finally {
-            close(preparedStatement,conn,null);
+//            close(preparedStatement,conn,null);
         }
         return 0;
     }
@@ -344,7 +284,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 
         Statement statement = null;
         ResultSet resultSet = null;
-        Connection conn = null;
         try {
             conn = getConnection();
             statement = conn.createStatement();
@@ -363,7 +302,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (SQLException e) {
             log.error("发生了异常",e);
         } finally {//关闭连接
-            close(statement, conn, resultSet);
+            //close(statement, conn, resultSet);
         }
         return -1;
     }
@@ -386,7 +325,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 
         log.info("selectPage " + sql.toString());
 
-        Connection conn = null;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         try {
@@ -398,7 +336,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (Exception e) {
             log.error("发生了异常",e);
         } finally {
-            close(preparedStatement, conn, resultSet);
+            //close(preparedStatement, conn, resultSet);
         }
         return new ArrayList<T>(0);//直接返回空list，防止NullPointException
     }
@@ -523,11 +461,11 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (IllegalAccessException e) {
             log.error("发生了异常",e);
         } catch (SQLException e) {
-            log.error("发生了异常",e);
+            log.error("发生了SQLException异常",e);
         } catch (InstantiationException e) {
-            log.error("发生了异常",e);
+            log.error("发生了 InstantiationException 异常",e);
         } catch (InvocationTargetException e) {
-            log.error("发生了异常",e);
+            log.error("发生了 InvocationTargetException 异常",e);
         }
         return outputList;
     }
@@ -553,7 +491,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (SQLException e) {
             log.error("发生了异常",e);
         }
-
     }
 
 //    /**
@@ -566,7 +503,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 //        log.info("clickHouse 查询集合数据执行sql：" + sql);
 //        Statement statement = null;
 //        ResultSet resultSet = null;
-//        Connection conn = null;
 //        try {
 //            conn = getConnection();
 //            statement = conn.createStatement();
@@ -612,7 +548,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         log.info("clickHouse 查询集合数据执行sql：" + sql);
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
-        Connection conn = null;
         try {
             conn = getConnection();
             preparedStatement = conn.prepareStatement(sql);
@@ -633,7 +568,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (SQLException e) {
             log.error("发生了异常", e);
         } finally {//关闭连接
-            close(preparedStatement, conn, resultSet);
+            //close(preparedStatement, conn, resultSet);
         }
         return null;
     }
@@ -647,7 +582,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
 //        log.info("clickHouse 查询单条数据执行sql：" + sql);
 //        Statement statement = null;
 //        ResultSet resultSet = null;
-//        Connection conn = null;
 //        try {
 //            conn = getConnection();
 //            statement = conn.createStatement();
@@ -682,7 +616,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         log.info("clickHouse 查询单条数据执行sql：" + selectSql);
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
-        Connection conn = null;
         try {
             conn = getConnection();
             preparedStatement = conn.prepareStatement(selectSql);
@@ -702,7 +635,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (SQLException e) {
             log.error("发生了异常",e);
         } finally {//关闭连接
-            close(preparedStatement, conn, resultSet);
+            //close(preparedStatement, conn, resultSet);
         }
         return null;
     }
@@ -721,7 +654,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         ResultSet resultSet = null;
         Field[] fields = null;
         int fieldSize = 0;
-        Connection conn = null;
         try {
             Long startTime = System.currentTimeMillis();
             // 此处查询一次，只为了获取对应列名索引，进而插入对应值
@@ -813,7 +745,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (Exception e1) {
             log.error("集合size：{}，批量插入{}异常：{}", list.size(), tableName, e1.getMessage());
         } finally {
-            close(preparedStatement, conn, resultSet);
+            //close(preparedStatement, conn, resultSet);
         }
     }
 
@@ -830,7 +762,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         ResultSet resultSet = null;
         String[] fields = null;
         int fieldSize = 0;
-        Connection conn = null;
         try {
             Long startTime = System.currentTimeMillis();
             // 此处查询一次，只为了获取对应列名索引，进而插入对应值
@@ -898,7 +829,7 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
         } catch (Exception e1) {
             log.error("集合size：{}，批量插入{}异常：{}", list.size(), tableName, e1);
         } finally {
-            close(preparedStatement, conn, resultSet);
+            //close(preparedStatement, conn, resultSet);
         }
     }
 
@@ -909,7 +840,6 @@ public class ClickHouseDaoBase<T extends _BaseEntity> {
      */
     public Integer executeInsertUpdateDelete(String sql) {
         log.info("clickhouse 输出执行sql：" + sql);
-//        Connection conn = null;
         try {
             conn = getConnection();
             Statement statement = conn.createStatement();

@@ -13,7 +13,7 @@ import java.util.Date;
 @ClickHouseTable(name = "t")
 public class T extends _BaseEntity implements Serializable {
 
-	private static final long serialVersionUID = -2260388125919493487L;
+	//private static final long serialVersionUID = -2260388125919493487L;
 	@Column(name = "birth")
 	@ClickHousePrimaryKey
 	private Date birth;
